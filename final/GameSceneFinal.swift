@@ -4,6 +4,7 @@
 //
 //  Created by user249178 on 11/15/23.
 //
+//seasrch for marked with items labeled "TODO"
 
 import SpriteKit
 import GameplayKit
@@ -24,9 +25,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
     
     var gameOver = false
     
-    //Height at which the level end
-    var endLevelY = 0
-    
     //tap to start node
     let tapToStartNode = SKSpriteNode(imageNamed: "TapToStart")
     //player
@@ -40,21 +38,17 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         maxPlayerY = 80
         GameState.sharedInstance.score = 0
         gameOver = false
+        //TODO: fix gravity i think?
         //add some gravity
         //physicsWorld.gravity = CGVector(dx: 0, dy: -2)
         //Set contact delegate
         self.scaleFactor = self.size.width / 320
-        
-        
-        
+
         //sets up the background and foreground nodes
         setupBackground()
         //builds the hud for the player
         buildHud()
 
-        
-
-        
         //add the player
         player = createPlayer()
         foregroundNode.addChild(player)
@@ -67,9 +61,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
     fatalError("init(coder:) has not been implemented")
     }
     
-    
-    
-    
+
     override func update(_ currentTime: TimeInterval) 
     {
         if gameOver {return}
@@ -106,7 +98,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate
             player.physicsBody?.velocity.dx = 0
         }
         
-        //if the player gets hit by an enemy, the game ends
+        //if the player gets hit by an enemy and has no lives, the game ends
+        if  GameState.sharedInstance.lives == 0
+        {
+            
+        }
     }
 
 
@@ -161,8 +157,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate
             let enemy = bodyB.node as! GameObjectNode
             //removed a life from the player,
             let loseLife = enemy.collisionWithPlayer(bodyA.node)
-            
-
+            //TODO: make lives node
+            //i should update the hud but id need to add a whole node for lives
         }
         //enemy to laser
         if bodyA.categoryBitMask == CollisionCategoryBitmask.Enemy && bodyB.categoryBitMask == CollisionCategoryBitmask.Laser
@@ -173,7 +169,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
             let enemyDeath = enemy.collisionWithLaser(laser)
             //removes the laser
             let laserhit = laser.collisionWithEnemy(enemy)
-
             updateHUD = true
 
         }
@@ -188,22 +183,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate
 
         }
 
-
-        
         //Update the HUD if necessary
         if updateHUD   
         {
-        lblStars.text = String(format: "X %d", GameState.sharedInstance.points)
+        lblcoins.text = String(format: "X %d", GameState.sharedInstance.points)
         lblScore.text = String(format: "X %d", GameState.sharedInstance.score)
         }
     }
 
-
-
-
-
-
-    
+    //creation of objects in the scene
     func createCoinAtPosition(_ position: CGPoint) -> PointNode 
     {
         //basic setup for the node
@@ -221,7 +209,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         node.physicsBody?.collisionBitMask = 0
         return node
     }
-    
     func createPlayer() -> SKNode 
     {
         let playerNode = SKNode()
@@ -241,7 +228,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         playerNode.physicsBody?.contactTestBitMask = CollisionCategoryBitmask.Coin | CollisionCategoryBitmask.Enemy    
         return playerNode
     }
-
     //spawns and starts a move up action for the laser
     func shootLaser(_ position: CGPoint) -> SKNode
     {
@@ -262,7 +248,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         let moveUp = moveObjectUp()
         self.run(moveUp)
     }
-
     //spawns and starts a move down action for the enemy
     func createEnemy(_ position: CGPoint) -> SKNode
     {
@@ -283,15 +268,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         let movedown = moveObjectDown()
         self.run(movedown)
     }
-
     //sets up a background node (may be expanded later)
     func createBackgroundNode() -> SKNode
     {
         let backgroundNode = SKSpriteNode(imageNamed: "background")
 
         return backgroundNode
-    }
-    
+    }  
     func setupBackground()
     {
         backgroundNode = createBackgroundNode()
@@ -305,7 +288,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         addChild(hudNode)
         //start generating the level
     }
-
+    //sets up labels for the hud and their text
     func buildHud()
     {
         // Build the HUD
@@ -331,7 +314,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
     }
 
 
-    //movment funcs so i dont need to call them up SO MANY TIMES 
+    //movment funcs so i dont need to call them every time i need something to move.
     func moveObjectUp() -> SKAction
     {
         let moveUpAction = SKAction.move(by: CGVector(dx: 0, dy: 100), duration: 1)
@@ -340,7 +323,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         let repeatAction = SKAction.repeatForever(moveUpAction)
         return repeatAction
     }
-
     func moveObjectDown() -> SKAction
     {
         let moveDownAction = SKAction.move(by: CGVector(dx: 0, dy: -100), duration: 1)
@@ -350,6 +332,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         return repeatAction
     }
     
+
     //spawns in the enemy is formations randomly closen, along with coins for higher difficulty spawns
     func SpawnElements()
     {
@@ -419,5 +402,4 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         self.view!.presentScene(endGameScene, transition: reveal)
     }
 
-    
 }
