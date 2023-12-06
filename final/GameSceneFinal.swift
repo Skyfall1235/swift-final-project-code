@@ -10,6 +10,7 @@ import GameplayKit
 
 class GameScene: SKScene, SKPhysicsContactDelegate 
 {
+    //Misc Nodes
     var backgroundNode: SKNode!
     var midgroundNode: SKNode!
     var foregroundNode: SKNode!
@@ -45,16 +46,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         //Set contact delegate
         self.scaleFactor = self.size.width / 320
         
-        
-        
         //sets up the background and foreground nodes
         setupBackground()
         //builds the hud for the player
         buildHud()
 
-        
 
-        
         //add the player
         player = createPlayer()
         foregroundNode.addChild(player)
@@ -67,9 +64,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
     fatalError("init(coder:) has not been implemented")
     }
     
-    
-    
-    
+
     override func update(_ currentTime: TimeInterval) 
     {
         if gameOver {return}
@@ -109,87 +104,89 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         //if the player gets hit by an enemy, the game ends
     }
 
-
+//TOUCHES
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) 
     {
-
         //if we are playing, ignore touches
         if player.physicsBody!.isDynamic {return }
 
         //remove the starting node
         tapToStartNode.removeFromParent()
-        //start shooting lasers
-
+        let shootLasers = ShootLaserAction()
+        // Run the repeating action on the player
+        playerNode.run(shootLasers)
 
         //also, start spawning enemies
-
+        foregroundNode.run(repeatForeverAction)
+        //allow the player to move
         player.physicsBody?.isDynamic = true
-        player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 20))
     }
-    
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) 
     {
-    guard let touch = touches.first
-    else {return}
-    if(touch.location(in: self).x > player.position.x) 
+        guard let touch = touches.first
+        else {return}
+        if(touch.location(in: self).x > player.position.x) 
         {
         player.physicsBody?.velocity.dx = 80 //applyImpulse((CGVector(dx: 5, dy: 0)))
         }
-    else 
+        else 
         {
-        player.physicsBody?.velocity.dx = -80 //applyImpulse((CGVector(dx: -5, dy: 0)))
+            player.physicsBody?.velocity.dx = -80 //applyImpulse((CGVector(dx: -5, dy: 0)))
         }
     }
     
     
-    
-    //THIS IS WHERE YOU CHECK FOR COLLISIONS
-    //im sleep deprived, IGNORE ME
+    //where collisions get processed
     func didBegin(_ contact: SKPhysicsContact) 
     {
-        //i need both collsion nodes
+        //i need both collision nodes
         let bodyA = contact.bodyA.node
         let bodyB = contact.bodyB.node
         //i need this to be initialized before we start the computations
         var updateHUD = false
         
 
+        //comparisons computed in advance, to make code more readable
+        let enemyToPlayer = (bodyA.categoryBitMask == CollisionCategoryBitmask.Player && bodyB.categoryBitMask == CollisionCategoryBitmask.Enemy)
+        let playerToEnemy = (bodyA.categoryBitMask == CollisionCategoryBitmask.Enemy && bodyB.categoryBitMask == CollisionCategoryBitmask.Player)
+
+        let enemyToLaser = (bodyA.categoryBitMask == CollisionCategoryBitmask.Enemy && bodyB.categoryBitMask == CollisionCategoryBitmask.Laser)
+        let laserToEnemy = (bodyA.categoryBitMask == CollisionCategoryBitmask.Laser && bodyB.categoryBitMask == CollisionCategoryBitmask.Enemy)
+
+        let playerToCoin = (bodyA.categoryBitMask == CollisionCategoryBitmask.Player && bodyB.categoryBitMask == CollisionCategoryBitmask.Coin)
+        let coinToPlayer = (bodyA.categoryBitMask == CollisionCategoryBitmask.Coin && bodyB.categoryBitMask == CollisionCategoryBitmask.Player)
+
+
         //enemy to player
-        if bodyA.categoryBitMask == CollisionCategoryBitmask.Player && bodyB.categoryBitMask == CollisionCategoryBitmask.Enemy
+        if enemyToPlayer || playerToEnemy
         {
             let player = bodyA.node as! SKNode
             let enemy = bodyB.node as! GameObjectNode
             //removed a life from the player,
             let loseLife = enemy.collisionWithPlayer(bodyA.node)
-            
-
         }
         //enemy to laser
-        if bodyA.categoryBitMask == CollisionCategoryBitmask.Enemy && bodyB.categoryBitMask == CollisionCategoryBitmask.Laser
+        if enemyToLaser || laserToEnemy
         {
             let enemy = bodyA.node as! GameObjectNode
             let laser = bodyB.node as! GameObjectNode
             //kills the enemy and gives points
             let enemyDeath = enemy.collisionWithLaser(laser)
-            //removes the laser
+            //removes the laser and update the hud
             let laserhit = laser.collisionWithEnemy(enemy)
-
             updateHUD = true
-
         }
         //player to coin (point was the bitmask and im too lazy to change it)
-        if bodyA.categoryBitMask == CollisionCategoryBitmask.Player && bodyB.categoryBitMask == CollisionCategoryBitmask.Coin
+        if playerToCoin || coinToPlayer
         {
             let player = bodyA.node as! SKNode
             //load the collsion for the coin with the player
             let point = bodyB.node as! GameObjectNode
             point.collisionWithPlayer(player)
             updateHUD = true
-
         }
 
 
-        
         //Update the HUD if necessary
         if updateHUD   
         {
@@ -199,29 +196,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate
     }
 
 
-
-
-
-
-    
-    func createCoinAtPosition(_ position: CGPoint) -> PointNode 
-    {
-        //basic setup for the node
-        let node = PointNode()
-        node.position = CGPoint(x: position.x * scaleFactor, y: position.y)
-        node.name = "Point"
-        //set up the image sprite
-        var sprite: SKSpriteNode
-        sprite = SKSpriteNode(imageNamed: "coin2")
-        node.addChild(sprite)
-        //do the physics setup
-        node.physicsBody = SKPhysicsBody(circleOfRadius: sprite.size.width/2)
-        node.physicsBody?.isDynamic = false
-        node.physicsBody?.categoryBitMask = CollisionCategoryBitmask.Player
-        node.physicsBody?.collisionBitMask = 0
-        return node
-    }
-    
+//CREATION FUNCS
     func createPlayer() -> SKNode 
     {
         let playerNode = SKNode()
@@ -241,12 +216,33 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         playerNode.physicsBody?.contactTestBitMask = CollisionCategoryBitmask.Coin | CollisionCategoryBitmask.Enemy    
         return playerNode
     }
-
-    //spawns and starts a move up action for the laser
-    func shootLaser(_ position: CGPoint) -> SKNode
+    func createCoinAtPosition(_ position: CGPoint) -> PointNode 
     {
+        //basic setup for the node
+        let node = PointNode()
+        node.position = CGPoint(x: position.x * scaleFactor, y: position.y)
+        node.name = "Point"
+        //set up the image sprite
+        var sprite: SKSpriteNode
+        sprite = SKSpriteNode(imageNamed: "coin2")
+        node.addChild(sprite)
+        //do the physics setup
+        node.physicsBody = SKPhysicsBody(circleOfRadius: sprite.size.width/2)
+        node.physicsBody?.isDynamic = false
+        node.physicsBody?.categoryBitMask = CollisionCategoryBitmask.Player
+        node.physicsBody?.collisionBitMask = 0
+        return node
+    }
+    
+    
+//SHOOTING LASERS
+    //spawns and starts a move up action for the laser
+    func shootLaser(_ SKNode: playerNode) -> SKNode
+    {
+    
+        let position: CGPoint = playerNode.position
         let laserNode = LaserNode()
-        laserNode.position = CGPoint(x: position.x * scaleFactor, y: position.y)
+        laserNode.position = CGPoint(x: position.x * scaleFactor, y: position.y + 30)
         laserNode.name = "Laser"
 
         //setup thye sprite and physics
@@ -262,7 +258,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         let moveUp = moveObjectUp()
         self.run(moveUp)
     }
+    func ShootLaserAction() -> SKAction
+    {
+        let shootLaserSingle = SKAction.run {
+            self.shootlaser(player)
+        }  
+        let waitAction = SKAction.wait(forDuration: 2.0) // Adjust as needed
+        let repeatLaserAction = SKAction.sequence([callMethodAction, waitAction])
+        // Create a repeating action
+        let repeatingAction = SKAction.repeatForever(sequenceAction)
+        return repeatingAction
+    }
 
+//SPAWNING ENEMIES
     //spawns and starts a move down action for the enemy
     func createEnemy(_ position: CGPoint) -> SKNode
     {
@@ -281,77 +289,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate
 
         //run the move down action
         let movedown = moveObjectDown()
-        self.run(movedown)
+        enemyNode.run(movedown)
     }
-
-    //sets up a background node (may be expanded later)
-    func createBackgroundNode() -> SKNode
-    {
-        let backgroundNode = SKSpriteNode(imageNamed: "background")
-
-        return backgroundNode
-    }
-    
-    func setupBackground()
-    {
-        backgroundNode = createBackgroundNode()
-        addChild(backgroundNode)
-    
-        //foreground
-        foregroundNode = SKNode()
-        addChild(foregroundNode)
-        //HUD
-        hudNode = SKNode()
-        addChild(hudNode)
-        //start generating the level
-    }
-
-    func buildHud()
-    {
-        // Build the HUD
-        //coins and text besides them
-        let coin = SKSpriteNode(imageNamed: "coin2")
-        coin.position = CGPoint(x: 25, y: self.size.height-30)
-        hudNode.addChild(coin)
-        lblcoins = SKLabelNode(fontNamed: "ChalkboardSE-Bold")
-        lblcoins.fontSize = 30
-        lblcoins.fontColor = SKColor.white
-        lblcoins.position = CGPoint(x: 50, y: self.size.height-40)
-        lblcoins.horizontalAlignmentMode = .left
-        lblcoins.text = String(format: "X %d", GameState.sharedInstance.points)
-        hudNode.addChild(lblcoins)
-        // Score
-        lblScore = SKLabelNode(fontNamed: "ChalkboardSE-Bold")
-        lblScore.fontSize = 30
-        lblScore.fontColor = SKColor.white
-        lblScore.position = CGPoint(x: self.size.width-20, y: self.size.height-40)
-        lblScore.horizontalAlignmentMode = .right
-        lblScore.text = "0"
-        hudNode.addChild(lblScore)
-    }
-
-
-    //movment funcs so i dont need to call them up SO MANY TIMES 
-    func moveObjectUp() -> SKAction
-    {
-        let moveUpAction = SKAction.move(by: CGVector(dx: 0, dy: 100), duration: 1)
-
-        // Repeat the action forever to create continuous upward movement
-        let repeatAction = SKAction.repeatForever(moveUpAction)
-        return repeatAction
-    }
-
-    func moveObjectDown() -> SKAction
-    {
-        let moveDownAction = SKAction.move(by: CGVector(dx: 0, dy: -100), duration: 1)
-
-        // Repeat the action forever to create continuous upward movement
-        let repeatAction = SKAction.repeatForever(moveDownAction)
-        return repeatAction
-    }
-    
     //spawns in the enemy is formations randomly closen, along with coins for higher difficulty spawns
-    func SpawnElements()
+    func SpawnElements() -> SKAction
     {
         let spawnAction = SKAction
         //choose a location, spawn, and generate around it
@@ -405,8 +346,76 @@ class GameScene: SKScene, SKPhysicsContactDelegate
         // Repeat the sequence forever
         let repeatForeverAction = SKAction.repeatForever(sequenceAction)
         // Run the repeatForeverAction on the scene or a specific node
-        self.run(repeatForeverAction)
+        return repeatForeverAction
     }
+
+//ENVIRONMENT ELEMENTS
+    //sets up a background node (may be expanded later)
+    func createBackgroundNode() -> SKNode
+    {
+        let backgroundNode = SKSpriteNode(imageNamed: "background")
+
+        return backgroundNode
+    }
+    
+    func setupBackground()
+    {
+        backgroundNode = createBackgroundNode()
+        addChild(backgroundNode)
+    
+        //foreground
+        foregroundNode = SKNode()
+        addChild(foregroundNode)
+        //HUD
+        hudNode = SKNode()
+        addChild(hudNode)
+        //start generating the level
+    }
+
+    func buildHud()
+    {
+        // Build the HUD
+        //coins and text besides them
+        let coin = SKSpriteNode(imageNamed: "coin2")
+        coin.position = CGPoint(x: 25, y: self.size.height-30)
+        hudNode.addChild(coin)
+        lblcoins = SKLabelNode(fontNamed: "ChalkboardSE-Bold")
+        lblcoins.fontSize = 30
+        lblcoins.fontColor = SKColor.white
+        lblcoins.position = CGPoint(x: 50, y: self.size.height-40)
+        lblcoins.horizontalAlignmentMode = .left
+        lblcoins.text = String(format: "X %d", GameState.sharedInstance.points)
+        hudNode.addChild(lblcoins)
+        // Score
+        lblScore = SKLabelNode(fontNamed: "ChalkboardSE-Bold")
+        lblScore.fontSize = 30
+        lblScore.fontColor = SKColor.white
+        lblScore.position = CGPoint(x: self.size.width-20, y: self.size.height-40)
+        lblScore.horizontalAlignmentMode = .right
+        lblScore.text = "0"
+        hudNode.addChild(lblScore)
+    }
+
+//MOVEMENT ACTIONS
+    //movment funcs so i dont need to call them up SO MANY TIMES 
+    func moveObjectUp() -> SKAction
+    {
+        let moveUpAction = SKAction.move(by: CGVector(dx: 0, dy: 100), duration: 1)
+
+        // Repeat the action forever to create continuous upward movement
+        let repeatAction = SKAction.repeatForever(moveUpAction)
+        return repeatAction
+    }
+    func moveObjectDown() -> SKAction
+    {
+        let moveDownAction = SKAction.move(by: CGVector(dx: 0, dy: -100), duration: 1)
+
+        // Repeat the action forever to create continuous upward movement
+        let repeatAction = SKAction.repeatForever(moveDownAction)
+        return repeatAction
+    }
+
+    
 
     //runs to close out the game and transition to the game over screen
     func endGame() 
